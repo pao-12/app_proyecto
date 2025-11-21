@@ -30,7 +30,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   late final TextEditingController _proteinsController;
   late String _selectedMealType;
   
-  final List<String> _mealTypes = ['Desayuno', 'Almuerzo', 'Cena', 'Snack'];
+  final List<String> _mealTypes = ['Desayuno', 'Almuerzo', 'Cena', 'Bebidas'];
   
   // Getter simple para saber el modo de la pantalla
   bool get isEditing => widget.entryToEdit != null;

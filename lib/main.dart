@@ -1,10 +1,14 @@
 import 'package:contador_calorias/vista/main_screen.dart';
 import 'package:flutter/material.dart';
-
+import 'package:timezone/data/latest.dart' as tz;
 
 void main() {
   // Asegura que las funciones de Flutter se han inicializado antes de la app
   WidgetsFlutterBinding.ensureInitialized();
+
+  //  Inicializa las zonas horarias (necesario para notificaciones programadas)
+  tz.initializeTimeZones();
+
   runApp(const NutriTrackerApp());
 }
 
@@ -26,3 +30,4 @@ class NutriTrackerApp extends StatelessWidget {
     );
   }
 }
+ 
