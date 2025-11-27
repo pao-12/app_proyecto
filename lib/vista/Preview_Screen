@@ -1,0 +1,128 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import '../utils/path_provider_helper.dart'; // Importa el nuevo helper
+
+class PreviewScreen extends StatefulWidget {
+  final String imagePath;
+  final String mealType;
+
+  const PreviewScreen({
+    super.key,
+    required this.imagePath,
+    required this.mealType,
+  });
+
+  @override
+  State<PreviewScreen> createState() => _PreviewScreenState();
+}
+
+class _PreviewScreenState extends State<PreviewScreen> {
+  // Manejador para guardar y devolver la ruta del archivo.
+  Future<void> _savePhoto() async {
+    // 1. Define la nueva ruta permanente
+    final newPath = await FileHelper.getNewPermanentPath(
+      widget.mealType,
+      '${DateTime.now().millisecondsSinceEpoch}.jpg',
+    );
+
+    try {
+      // 2. Mueve la foto de su ubicación temporal a la ubicación permanente
+      final File permanentFile = await File(widget.imagePath).copy(newPath);
+      
+      if (!mounted) return;
+
+      // 3. Devuelve la RUTA PERMANENTE (String) a la pantalla anterior (CameraScreen)
+      Navigator.pop(context, permanentFile.path);
+
+    } catch (e) {
+      // Intenta borrar el archivo temporal si el guardado falla, antes de mostrar el error.
+      _deleteTemporalFile();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al guardar la foto: $e')),
+        );
+        // Si hay error, devuelve null y vuelve atrás
+        Navigator.pop(context, null);
+      }
+    }
+  }
+
+  // Utilidad para borrar la foto temporal
+  void _deleteTemporalFile() {
+    try {
+      File(widget.imagePath).deleteSync();
+    } catch (_) {
+      // Ignorar errores al borrar archivos temporales (no es crítico)
+    }
+  }
+
+  // Descartar foto (solo vuelve atrás sin devolver nada)
+  void _discardPhoto() {
+    _deleteTemporalFile();
+    // Devuelve null a la pantalla anterior (CameraScreen)
+    Navigator.pop(context, null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: const Text('Previsualizar Foto'),
+        backgroundColor: Colors.black,
+        elevation: 0,
+        // Al presionar atrás, se descarta la foto
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: _discardPhoto,
+        ),
+      ),
+      body: Center(
+        child: Column(
+          children: [
+            Expanded(
+              child: Image.file(
+                File(widget.imagePath),
+                fit: BoxFit.contain, // Muestra la foto sin recortarla
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Botón Descartar (rojo)
+                  ElevatedButton.icon(
+                    onPressed: _discardPhoto,
+                    icon: const Icon(Icons.delete, color: Colors.white),
+                    label: const Text('Descartar', style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade700,
+                      foregroundColor: Colors.white, // Usa foregroundColor para el color del texto y el icono
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  
+                  // Botón Guardar (verde)
+                  ElevatedButton.icon(
+                    onPressed: _savePhoto,
+                    icon: const Icon(Icons.check, color: Colors.white),
+                    label: const Text('Guardar', style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade700,
+                      foregroundColor: Colors.white, // Usa foregroundColor para el color del texto y el icono
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 /// El modelo User representa la información personal y objetivos del usuario,
 /// y se mapea a la tabla 'user_profile' de la base de datos.
 class User {

@@ -48,7 +48,7 @@ class DataService {
   }
 
   // Eliminar (Delete) una entrada por ID
-  Future<void> deleteEntry(String id) async {
+  Future<void> deleteEntry(int id) async {
     final entries = await getEntries();
     final prefs = await SharedPreferences.getInstance();
 

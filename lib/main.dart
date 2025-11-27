@@ -1,12 +1,9 @@
-import 'package:contador_calorias/vista/main_screen.dart';
+import 'package:contador_calorias/vista/auth_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
 void main() {
-  // Asegura que las funciones de Flutter se han inicializado antes de la app
   WidgetsFlutterBinding.ensureInitialized();
-
-  //  Inicializa las zonas horarias (necesario para notificaciones programadas)
   tz.initializeTimeZones();
 
   runApp(const NutriTrackerApp());
@@ -18,16 +15,21 @@ class NutriTrackerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      // Desactiva la banda de debug en la esquina
       debugShowCheckedModeBanner: false,
       title: 'NutriTracker',
       theme: ThemeData(
         primarySwatch: Colors.green,
         useMaterial3: true,
       ),
-      // La aplicación inicia en MainScreen, que contiene la navegación
-      home: const MainScreen(),
+
+      //  Rutas nombradas
+      routes: {
+        '/auth': (context) => const AuthScreen(),
+      },
+
+      //  Pantalla inicial
+      initialRoute: '/auth',
     );
   }
 }
- 
+  

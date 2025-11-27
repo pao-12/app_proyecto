@@ -1,106 +1,110 @@
-import 'package:sqflite/sqflite.dart';
+import 'dart:async';
 import 'package:path/path.dart';
-import '../Models/food_entry.dart';
-import '../Models/user.dart'; // Importa User (ruta con mayúscula consistente con carpeta `Models`)
+import 'package:sqflite/sqflite.dart';
 import 'package:intl/intl.dart';
 
-/// La clase DatabaseHelper maneja todas las operaciones CRUD (Crear, Leer, Actualizar, Eliminar)
-/// con la base de datos SQLite. Se implementa como un Singleton.
+import '../Models/food_entry.dart';
+import '../Models/user.dart';
+
 class DatabaseHelper {
-  // ----------------------------------------------------
-  // 1. SINGLETON SETUP
-  // ----------------------------------------------------
-  static final DatabaseHelper _instance = DatabaseHelper._internal();
+  static const _databaseName = "calories_app.db";
+  static const _databaseVersion = 1;
+
+  static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
   static Database? _database;
 
-  factory DatabaseHelper() => _instance;
-  DatabaseHelper._internal();
-
-  // Nombres de las tablas
-  static const String foodEntriesTable = 'food_entries';
-  static const String userProfileTable = 'user_profile';
+  DatabaseHelper._privateConstructor();
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB();
+    _database = await _initDatabase();
     return _database!;
   }
 
-  // ----------------------------------------------------
-  // 2. INICIALIZACIÓN DE LA DB
-  // ----------------------------------------------------
-  Future<Database> _initDB() async {
-    String path = join(await getDatabasesPath(), 'nutritracker_db.db'); 
-    
+  Future<Database> _initDatabase() async {
+    String path = join(await getDatabasesPath(), _databaseName);
+
     return await openDatabase(
       path,
-      version: 1,
-      onCreate: _onCreate, 
+      version: _databaseVersion,
+      onCreate: _onCreate,
     );
   }
 
-  /// Método para crear las tablas (se llama solo en la primera instalación).
-  void _onCreate(Database db, int version) async {
-    // 1. Tabla de Registros de Alimentos
+  // Create a single unified table for food entries and a small user profile table
+  Future _onCreate(Database db, int version) async {
     await db.execute('''
-      CREATE TABLE $foodEntriesTable(
+      CREATE TABLE food_entries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        date TEXT,
-        mealType TEXT,
-        name TEXT,
+        date TEXT NOT NULL,
+        mealType TEXT NOT NULL,
+        name TEXT NOT NULL,
         description TEXT,
-        calories INTEGER,
-        carbs REAL,
-        fats REAL,
-        proteins REAL
+        calories INTEGER NOT NULL,
+        carbs REAL NOT NULL,
+        fats REAL NOT NULL,
+        proteins REAL NOT NULL,
+        imagePath TEXT
       )
     ''');
 
-    // 2. Tabla de Perfil de Usuario (Solo tendrá una fila con ID=1)
     await db.execute('''
-      CREATE TABLE $userProfileTable(
+      CREATE TABLE user_profile (
         id INTEGER PRIMARY KEY,
-        username TEXT,
+        username TEXT NOT NULL,
         age INTEGER,
         heightCm REAL,
         weightKg REAL,
         dailyCalorieGoal INTEGER
       )
     ''');
-    
-    // Inserta un usuario inicial al crear la base de datos
-    await db.insert(userProfileTable, User.initial().toMap());
   }
 
-  static DatabaseHelper get instance => _instance;
+  // -------------------------
+  // FoodEntry CRUD
+  // -------------------------
 
-  // ----------------------------------------------------
-  // 3. OPERACIONES CRUD para FOOD ENTRIES
-  // ----------------------------------------------------
   Future<int> insertFoodEntry(FoodEntry entry) async {
     final db = await database;
-    return await db.insert(foodEntriesTable, entry.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    return await db.insert('food_entries', entry.toMap());
   }
 
-  Future<List<FoodEntry>> getFoodEntries({required DateTime date, required String mealType}) async {
+  Future<List<FoodEntry>> getFoodEntries({DateTime? date, String? mealType}) async {
     final db = await database;
-    final formatter = DateFormat('yyyy-MM-dd');
-    final formattedDate = formatter.format(date);
+    String? where;
+    List<dynamic>? whereArgs;
 
-    final List<Map<String, dynamic>> maps = await db.query(
-      foodEntriesTable,
-      where: 'date = ? AND mealType = ?',
-      whereArgs: [formattedDate, mealType],
+    if (date != null || mealType != null) {
+      final parts = <String>[];
+      final args = <dynamic>[];
+      if (date != null) {
+        final dateStr = DateFormat('yyyy-MM-dd').format(date);
+        parts.add('date = ?');
+        args.add(dateStr);
+      }
+      if (mealType != null) {
+        parts.add('mealType = ?');
+        args.add(mealType);
+      }
+      where = parts.join(' AND ');
+      whereArgs = args;
+    }
+
+    final maps = await db.query(
+      'food_entries',
+      where: where,
+      whereArgs: whereArgs,
       orderBy: 'id DESC',
     );
-    return List.generate(maps.length, (i) => FoodEntry.fromMap(maps[i]));
+
+    return maps.map((m) => FoodEntry.fromMap(m)).toList();
   }
 
   Future<int> updateFoodEntry(FoodEntry entry) async {
     final db = await database;
+    if (entry.id == null) return 0;
     return await db.update(
-      foodEntriesTable,
+      'food_entries',
       entry.toMap(),
       where: 'id = ?',
       whereArgs: [entry.id],
@@ -110,55 +114,28 @@ class DatabaseHelper {
   Future<int> deleteFoodEntry(int id) async {
     final db = await database;
     return await db.delete(
-      foodEntriesTable,
+      'food_entries',
       where: 'id = ?',
       whereArgs: [id],
     );
   }
 
-  // ----------------------------------------------------
-  // 4. OPERACIONES CRUD para USER PROFILE
-  // ----------------------------------------------------
+  // -------------------------
+  // User profile helpers
+  // -------------------------
 
-  /// R - READ: Obtiene el único registro de usuario (ID=1).
   Future<User?> getPrimaryUser() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      userProfileTable,
-      where: 'id = ?',
-      whereArgs: [1], // Siempre buscamos el ID 1
-    );
-
-    if (maps.isNotEmpty) {
-      return User.fromMap(maps.first);
-    } else {
-      // Si está vacía, insertamos la inicial para el futuro
-      final initialUser = User.initial();
-      await insertOrUpdateUser(initialUser);
-      return initialUser; 
-    }
+    final maps = await db.query('user_profile', where: 'id = ?', whereArgs: [1], limit: 1);
+    if (maps.isEmpty) return null;
+    return User.fromMap(maps.first);
   }
 
-  /// C/U - CREATE/UPDATE: Inserta o actualiza el usuario principal (ID=1).
   Future<int> insertOrUpdateUser(User user) async {
     final db = await database;
-    
-    // Intentamos actualizar
-    final rowsAffected = await db.update(
-      userProfileTable,
-      user.toMap(),
-      where: 'id = ?',
-      whereArgs: [1],
-    );
-
-    // Si no se actualizó ninguna fila (porque no existía), la insertamos
-    if (rowsAffected == 0) {
-      return await db.insert(
-        userProfileTable,
-        user.toMap(), // Usamos el mapa del usuario proporcionado, no User.initial()
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    }
-    return rowsAffected;
+    // enforce id = 1 when inserting
+    final map = user.toMap();
+    if (user.id == null) map['id'] = 1;
+    return await db.insert('user_profile', map, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }

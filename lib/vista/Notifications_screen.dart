@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
-// Paquete para manejar notificaciones locales
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-// Carga todas las zonas horarias disponibles
 import 'package:timezone/data/latest_all.dart' as tz;
-// Manejo de fechas y horas con zonas horarias
 import 'package:timezone/timezone.dart' as tz;
 
-// Pantalla de configuración de notificaciones
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -16,122 +12,105 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
 
-  // Instancia principal para manejar notificaciones
   final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
     super.initState();
-    // Cuando se abre la pantalla, inicializa las notificaciones
     initNotifications();
   }
 
-  // ===============================
-  // Inicializa el sistema de notificaciones
-  // ===============================
+  // ===== Inicializar notificaciones =====
   void initNotifications() async {
-    // Configuración inicial solo para Android
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // Ajustes generales de inicialización
     const InitializationSettings settings =
         InitializationSettings(android: androidSettings);
 
-    // Inicializa el plugin de notificaciones
     await notificationsPlugin.initialize(settings);
 
-    // Inicializa el uso de zonas horarias para notificaciones programadas
     tz.initializeTimeZones();
   }
 
-  // ===============================
-  // Muestra una notificación inmediata
-  // ===============================
+  // ===== Notificación inmediata =====
   Future<void> showNotification(String title, String body) async {
-
-    // Configuración del canal de notificación
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-      'canal_1', // ID del canal
-      'Recordatorios de comida', // Nombre visible del canal
+      'canal_1',
+      'Recordatorios generales',
       importance: Importance.max,
       priority: Priority.high,
     );
 
-    // Configuración final de la notificación
-    const NotificationDetails notificationDetails =
-        NotificationDetails(android: androidDetails);
-
-    // Muestra la notificación inmediatamente
-    await notificationsPlugin.show(
-      0,       // ID de la notificación
-      title,   // Título
-      body,    // Mensaje
-      notificationDetails,
-    );
-  }
-
-  // ===============================
-  // Programa la notificación de COMIDA a las 12:00 PM
-  // ===============================
-  Future<void> scheduleLunchNotification() async {
-
-    // Configuración del canal de la notificación programada
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-      'canal_comida', // ID del canal
-      'Recordatorio de comida', // Nombre visible del canal
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-
-    // Configuración final
     const NotificationDetails details =
         NotificationDetails(android: androidDetails);
 
-    // Obtiene la fecha y hora actuales con zona horaria
+    await notificationsPlugin.show(
+      0,
+      title,
+      body,
+      details,
+    );
+  }
+
+  // ===== Notificación programada a las 12:00 PM =====
+  Future<void> scheduleLunchNotification() async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'canal_comida',
+      'Recordatorio de comida',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    const NotificationDetails details =
+        NotificationDetails(android: androidDetails);
+
     final now = tz.TZDateTime.now(tz.local);
 
-    // Crea la fecha y hora para las 12:00 PM
     var scheduledDate = tz.TZDateTime(
       tz.local,
       now.year,
       now.month,
       now.day,
-      12, // Hora (12 PM)
-      0,  // Minutos
-      0,  // Segundos
+      12,
+      0,
+      0,
     );
 
-    // Si hoy ya pasó las 12:00 PM, agenda para mañana
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
 
-    // Programa la notificación diaria
     await notificationsPlugin.zonedSchedule(
-      1, // ID de la notificación
-      'Hora de comer ', // Título
-      'Recuerda registrar tu comida en la app', // Mensaje
+      1,
+      'Hora de comer 🍽️',
+      'Recuerda registrar tu comida en la app',
       scheduledDate,
       details,
-      androidAllowWhileIdle: true, // Permite que funcione incluso en reposo
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time, // Repetir diariamente
+      matchDateTimeComponents: DateTimeComponents.time,
     );
   }
 
-  // ===============================
-  // Interfaz de la pantalla
-  // ===============================
+  // ===== UI =====
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FC),
       appBar: AppBar(
-        title: const Text('Notificaciones'),
+        title: const Text(
+          'Notificaciones',
+          style: TextStyle(color: Colors.black),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.white, // YA NO ES MORADO
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: Center(
         child: Padding(
@@ -140,59 +119,66 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
 
-              // Título de la pantalla
               const Text(
                 'Configura tus recordatorios',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 25),
 
-              // Botón para notificación inmediata de Desayuno
-              ElevatedButton(
+              _buildNotificationButton(
+                icon: Icons.breakfast_dining,
+                text: 'Desayuno',
+                color: Colors.orange,
                 onPressed: () {
                   showNotification(
-                    'Desayuno ',
+                    'Desayuno',
                     'Recuerda registrar tu desayuno',
                   );
                 },
-                child: const Text('Notificación de Desayuno'),
               ),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
-              // Botón para activar notificación diaria a las 12:00 PM
-              ElevatedButton(
+              _buildNotificationButton(
+                icon: Icons.lunch_dining,
+                text: 'Comida (12:00 PM)',
+                color: Colors.green,
                 onPressed: () {
                   scheduleLunchNotification();
                 },
-                child: const Text('Activar notificación de Comida (12:00 PM)'),
               ),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
-              // Botón para notificación inmediata de Cena
-              ElevatedButton(
+              _buildNotificationButton(
+                icon: Icons.dinner_dining,
+                text: 'Cena',
+                color: Colors.deepPurple,
                 onPressed: () {
                   showNotification(
-                    'Cena ',
+                    'Cena',
                     'Recuerda registrar tu cena',
                   );
                 },
-                child: const Text('Notificación de Cena'),
               ),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
-              // Botón para notificación inmediata de Agua
-              ElevatedButton(
+              _buildNotificationButton(
+                icon: Icons.water_drop,
+                text: 'Tomar Agua',
+                color: Colors.blue,
                 onPressed: () {
                   showNotification(
-                    'Agua ',
+                    'Agua',
                     'Recuerda tomar agua',
                   );
                 },
-                child: const Text('Notificación de Agua'),
               ),
             ],
           ),
@@ -200,4 +186,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
     );
   }
+
+  // ===== Botón personalizado =====
+  Widget _buildNotificationButton({
+    required IconData icon,
+    required String text,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 4,
+        ),
+        icon: Icon(icon, size: 24),
+        label: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
 }
+

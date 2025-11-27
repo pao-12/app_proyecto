@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart'; // Solo para asegurar que se puede usar en Flutter, aunque no se use directamente.
+// Modelo independiente: no necesita importar Flutter directamente.
 
 /// Define los tipos de comida disponibles.
 enum MealType { desayuno, almuerzo, cena, snack }
@@ -14,6 +14,7 @@ class FoodEntry {
   final String mealType; // Debe ser uno de los nombres del enum: 'desayuno', 'almuerzo', etc.
   final String name;
   final String? description;
+  final String? imagePath;
   final int calories;
   final double carbs;
   final double fats;
@@ -25,6 +26,7 @@ class FoodEntry {
     required this.mealType,
     required this.name,
     this.description,
+    this.imagePath,
     required this.calories,
     required this.carbs,
     required this.fats,
@@ -43,6 +45,7 @@ class FoodEntry {
       'mealType': mealType,
       'name': name,
       'description': description,
+      'imagePath': imagePath,
       'calories': calories,
       'carbs': carbs,
       'fats': fats,
@@ -60,6 +63,7 @@ class FoodEntry {
       mealType: map['mealType'] as String,
       name: map['name'] as String,
       description: map['description'] as String?,
+      imagePath: map['imagePath'] as String?,
       calories: map['calories'] as int,
       // Aseguramos la conversión a double, que es el tipo esperado en Dart.
       carbs: (map['carbs'] as num).toDouble(),
@@ -92,6 +96,7 @@ class FoodEntry {
       mealType: json['mealType'] as String,
       name: json['name'] as String,
       description: json['description'] as String?,
+      imagePath: json['imagePath'] as String?,
       calories: json['calories'] as int,
       carbs: (json['carbs'] as num).toDouble(),
       fats: (json['fats'] as num).toDouble(),

@@ -1,7 +1,6 @@
+import 'package:contador_calorias/widgets/services/auth_service.dart';
 import 'package:flutter/material.dart';
-import 'package:contador_calorias/main.dart';
-
-import 'Main_screen.dart'; // Importamos MainScreen para navegar
+import 'Main_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -10,265 +9,355 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
-  // 0: Bienvenida, 1: Login, 2: Register
-  int _currentView = 0; 
-  
-  // Controladores para los campos de texto
+class _AuthScreenState extends State<AuthScreen>
+    with SingleTickerProviderStateMixin {
+  int _currentView = 0;
+
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
 
-  // Función para manejar la simulación de autenticación exitosa
-  void _authenticateAndNavigate() {
-    // Simula una lógica de autenticación (aquí iría la lógica real de Firebase/Auth)
-    
-    // Navega a la pantalla principal de la aplicación
+  String? emailError;
+  String? passError;
+  String? confirmPassError;
+  String? nameError;
+
+  late AnimationController _controller;
+  late Animation<Offset> _slideUp;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 450));
+    _slideUp = Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+  }
+
+  void _goTo(int view) {
+    setState(() => _currentView = view);
+    _controller.forward(from: 0);
+    setState(() {
+      emailError = passError = confirmPassError = nameError = null;
+    });
+  }
+
+  bool validateRegister() {
+    setState(() {
+      nameError =
+          _usernameController.text.trim().isEmpty ? "El nombre es obligatorio" : null;
+      emailError =
+          !_emailController.text.contains("@") ? "Correo inválido" : null;
+      passError = _passwordController.text.length < 6
+          ? "La contraseña debe tener mínimo 6 caracteres"
+          : null;
+      confirmPassError =
+          _confirmPasswordController.text != _passwordController.text
+              ? "Las contraseñas no coinciden"
+              : null;
+    });
+
+    return nameError == null &&
+        emailError == null &&
+        passError == null &&
+        confirmPassError == null;
+  }
+
+  bool validateLogin() {
+    setState(() {
+      emailError =
+          !_emailController.text.contains("@") ? "Correo incorrecto" : null;
+      passError = _passwordController.text.length < 6
+          ? "Contraseña incorrecta"
+          : null;
+    });
+    return emailError == null && passError == null;
+  }
+
+  void showAlert(String title, String msg, {bool success = true}) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          title,
+          style: TextStyle(
+            color: success ? Colors.green : Colors.red,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(msg),
+        actions: [
+          TextButton(
+            child: const Text("OK"),
+            onPressed: () => Navigator.pop(context),
+          )
+        ],
+      ),
+    );
+  }
+
+  // ✅ REGISTRO MODIFICADO
+  Future<void> registerUser() async {
+    if (!validateRegister()) return;
+
+    await AuthService.instance.saveUserData(
+      name: _usernameController.text.trim(),
+      email: _emailController.text.trim(),
+    );
+
+    // ALERTA Y REGRESO A LOGIN
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          "Registro exitoso",
+          style: TextStyle(
+            color: Colors.green,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: const Text("Tus datos se guardaron correctamente."),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Cierra alerta
+              _goTo(1); //  Cambia a LOGIN
+            },
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> loginUser() async {
+    if (!validateLogin()) return;
+
+    showAlert("Inicio exitoso", "Bienvenido nuevamente.");
+
+    await Future.delayed(const Duration(milliseconds: 700));
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => const MainScreen()),
     );
   }
 
-  // Widget para construir el formulario de Inicio de Sesión
+  // CAMPOS
+  Widget _styledField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool obscure = false,
+    String? error,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: Colors.white,
+        labelText: label,
+        errorText: error,
+        prefixIcon: Icon(icon, color: Colors.black54),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+      ),
+    );
+  }
+
+  // BOTÓN MÁS CORTO
+  Widget _primaryButton(String text, VoidCallback onPressed) {
+    return SizedBox(
+      width: 350,
+      height: 60,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.black,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // LOGIN FORM
   Widget _buildLoginForm() {
-    return Column(
-      children: [
-        const Text(
-          '¡Bienvenido de vuelta!',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
-        const SizedBox(height: 30),
-        
-        // Campo de Email
-        TextField(
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
-          decoration: InputDecoration(
-            labelText: 'Correo Electrónico',
-            prefixIcon: const Icon(Icons.email_outlined, color: Colors.grey),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            filled: true,
-            fillColor: Colors.grey[100],
-          ),
-        ),
-        const SizedBox(height: 20),
-        
-        // Campo de Contraseña
-        TextField(
-          controller: _passwordController,
-          obscureText: true,
-          decoration: InputDecoration(
-            labelText: 'Contraseña',
-            prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            filled: true,
-            fillColor: Colors.grey[100],
-          ),
-        ),
-        const SizedBox(height: 30),
-        
-        // Botón de Inicio de Sesión
-        ElevatedButton(
-          onPressed: _authenticateAndNavigate,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black, // Color negro
-            minimumSize: const Size(double.infinity, 50), // Ancho completo
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-          child: const Text(
-            'Iniciar Sesión',
-            style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-        ),
+    return SlideTransition(
+      position: _slideUp,
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            const Text("Iniciar Sesión",
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
 
-        const SizedBox(height: 15),
+            _styledField(
+              controller: _emailController,
+              label: "Correo electrónico",
+              icon: Icons.email_outlined,
+              error: emailError,
+            ),
+            const SizedBox(height: 15),
 
-        // Botón para volver a la vista de Bienvenida
-        TextButton(
-          onPressed: () => setState(() => _currentView = 0),
-          child: const Text('Volver', style: TextStyle(color: Colors.grey)),
+            _styledField(
+              controller: _passwordController,
+              label: "Contraseña",
+              icon: Icons.lock_outline,
+              obscure: true,
+              error: passError,
+            ),
+            const SizedBox(height: 30),
+
+            _primaryButton("Entrar", loginUser),
+
+            TextButton(
+              onPressed: () => _goTo(0),
+              child: const Text("Volver", style: TextStyle(color: Colors.black)),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
-  // Widget para construir el formulario de Registro
+  // REGISTER FORM
   Widget _buildRegisterForm() {
-    return Column(
-      children: [
-        const Text(
-          'Crea tu cuenta EATY',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
-        const SizedBox(height: 30),
+    return SlideTransition(
+      position: _slideUp,
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            const Text("Crear Cuenta",
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
 
-        // Campo de Nombre de Usuario
-        TextField(
-          controller: _usernameController,
-          decoration: InputDecoration(
-            labelText: 'Nombre de Usuario',
-            prefixIcon: const Icon(Icons.person_outline, color: Colors.grey),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            filled: true,
-            fillColor: Colors.grey[100],
-          ),
-        ),
-        const SizedBox(height: 20),
+            _styledField(
+              controller: _usernameController,
+              label: "Nombre",
+              icon: Icons.person_outline,
+              error: nameError,
+            ),
+            const SizedBox(height: 12),
 
-        // Campo de Email (Reutiliza el diseño del login)
-        TextField(
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
-          decoration: InputDecoration(
-            labelText: 'Correo Electrónico',
-            prefixIcon: const Icon(Icons.email_outlined, color: Colors.grey),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            filled: true,
-            fillColor: Colors.grey[100],
-          ),
-        ),
-        const SizedBox(height: 20),
+            _styledField(
+              controller: _emailController,
+              label: "Correo electrónico",
+              icon: Icons.email_outlined,
+              error: emailError,
+            ),
+            const SizedBox(height: 12),
 
-        // Campo de Contraseña (Reutiliza el diseño del login)
-        TextField(
-          controller: _passwordController,
-          obscureText: true,
-          decoration: InputDecoration(
-            labelText: 'Contraseña',
-            prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            filled: true,
-            fillColor: Colors.grey[100],
-          ),
-        ),
-        const SizedBox(height: 30),
+            _styledField(
+              controller: _passwordController,
+              label: "Contraseña",
+              icon: Icons.lock_outline,
+              obscure: true,
+              error: passError,
+            ),
+            const SizedBox(height: 12),
 
-        // Botón de Registro
-        ElevatedButton(
-          onPressed: _authenticateAndNavigate, // Simula el registro exitoso
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green.shade600, // Color verde
-            minimumSize: const Size(double.infinity, 50),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-          child: const Text(
-            'Registrarse',
-            style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-        ),
-        
-        const SizedBox(height: 15),
+            _styledField(
+              controller: _confirmPasswordController,
+              label: "Confirmar contraseña",
+              icon: Icons.lock_reset_outlined,
+              obscure: true,
+              error: confirmPassError,
+            ),
+            const SizedBox(height: 20),
 
-        // Botón para volver a la vista de Bienvenida
-        TextButton(
-          onPressed: () => setState(() => _currentView = 0),
-          child: const Text('Volver', style: TextStyle(color: Colors.grey)),
+            _primaryButton("Guardar", registerUser),
+
+            TextButton(
+              onPressed: () => _goTo(0),
+              child: const Text("Volver", style: TextStyle(color: Colors.black)),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
-  // Widget para construir la vista de Bienvenida inicial
   Widget _buildWelcomeView() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // --- LOGO (Logo.png) ---
-        Image.asset(
-          'assets/image/Logo.png',
-          // Asegúrate de que el logo tenga el tamaño adecuado
-          height: 150, 
-        ),
-        const SizedBox(height: 10),
-        const Text(
-          // Mantengo este texto debajo del logo si no está incluido en la imagen
-          'Tu contador de calorías inteligente',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        
-        const SizedBox(height: 80),
-        
-        // Botón de Iniciar Sesión
-        ElevatedButton(
-          onPressed: () => setState(() => _currentView = 1), // Cambia a vista de Login
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black,
-            minimumSize: const Size(double.infinity, 50),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-          child: const Text(
-            'Iniciar Sesión',
-            style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-        ),
-        
-        const SizedBox(height: 20),
-        
-        // Botón de Registrarse
-        OutlinedButton(
-          onPressed: () => setState(() => _currentView = 2), // Cambia a vista de Registro
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.black,
-            side: const BorderSide(color: Colors.black, width: 2),
-            minimumSize: const Size(double.infinity, 50),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-          child: const Text(
-            'Registrarse',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        ),
+        Image.asset('assets/image/Logo.png', height: 150),
+        const SizedBox(height: 8),
+        const Text("Tu contador de calorías inteligente",
+            style: TextStyle(color: Colors.grey)),
+        const SizedBox(height: 90),
+
+        _primaryButton("Iniciar Sesión", () => _goTo(1)),
+        const SizedBox(height: 18),
+
+        _primaryButton("Registrar", () => _goTo(2)),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Definimos el widget a mostrar basado en el estado
-    Widget currentWidget;
-    switch (_currentView) {
-      case 1:
-        currentWidget = _buildLoginForm();
-        break;
-      case 2:
-        currentWidget = _buildRegisterForm();
-        break;
-      case 0:
-      default:
-        currentWidget = _buildWelcomeView();
-        break;
+    Widget view;
+
+    if (_currentView == 1) {
+      view = _buildLoginForm();
+    } else if (_currentView == 2) {
+      view = _buildRegisterForm();
+    } else {
+      view = _buildWelcomeView();
     }
 
     return Scaffold(
-      // Ya no definimos el color de fondo aquí, lo hace la imagen de fondo
       body: Stack(
         children: [
-          // 1. Imagen de Fondo (Pantalla.png)
           Positioned.fill(
             child: Image.asset(
               'assets/image/Pantalla.png',
-              fit: BoxFit.cover, // Asegura que la imagen cubra todo el espacio
-              // Si la imagen es muy grande o muy pequeña, puedes usar BoxFit.fill
+              fit: BoxFit.cover,
             ),
           ),
-
-          // 2. Contenido de Autenticación
           SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 50),
-              child: SizedBox(
-                height: MediaQuery.of(context).size.height - 100, // Asegura que el contenido ocupe casi toda la altura
-                child: Center(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: currentWidget,
-                  ),
-                ),
+            child: Center(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _currentView == 0
+                    ? view
+                    : Container(
+                        key: ValueKey(_currentView),
+                        width: MediaQuery.of(context).size.width * 0.78,
+                        constraints: const BoxConstraints(
+                          maxWidth: 380,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 16, horizontal: 22),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.93),
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.25),
+                              blurRadius: 20,
+                              offset: const Offset(0, 9),
+                            )
+                          ],
+                        ),
+                        child: view,
+                      ),
               ),
             ),
           ),
@@ -277,3 +366,5 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 }
+
+
