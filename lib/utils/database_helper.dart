@@ -40,10 +40,6 @@ class DatabaseHelper {
         mealType TEXT NOT NULL,
         name TEXT NOT NULL,
         description TEXT,
-        calories INTEGER NOT NULL,
-        carbs REAL NOT NULL,
-        fats REAL NOT NULL,
-        proteins REAL NOT NULL,
         imagePath TEXT
       )
     ''');
